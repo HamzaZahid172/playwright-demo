@@ -1,44 +1,51 @@
 name: Playwright Tests
+
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "main" ]
+  workflow_dispatch: {}   # allow manual runs
+
 jobs:
   test:
-    timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: lts/*
-    - name: Install dependencies
-      run: npm ci
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run Playwright tests
-      run: npx playwright test
-      env:
-        SAUCE_USER: ${{ secrets.SAUCE_USER }}
-        SAUCE_PASS: ${{ secrets.SAUCE_PASS }}
-    - name: Upload HTML report
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: playwright-report
-        path: playwright-report
-        retention-days: 7
-    - name: Upload traces
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: traces
-        path: test-results
-        retention-days: 7
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run tests
+        run: npx playwright test
+        env:
+          SAUCE_USER: ${{ secrets.SAUCE_USER }}
+          SAUCE_PASS: ${{ secrets.SAUCE_PASS }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_attempt }}   # <- unique per re-run
+          path: playwright-report
+          if-no-files-found: ignore                           # <- silence warning
+          retention-days: 7
+          overwrite: true                                     # <- ok to re-run
+
+      - name: Upload traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: traces-${{ github.run_attempt }}
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+          overwrite: true
